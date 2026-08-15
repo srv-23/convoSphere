@@ -1,7 +1,10 @@
+import dns from "dns";
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
 import cors from "cors";
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
