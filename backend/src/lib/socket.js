@@ -1,10 +1,14 @@
 import { Server } from "socket.io";
 import http from "http";
-import express from "express";
+import mongoose from "mongoose";
+
 import { ENV } from "./env.js";
+import { createApp } from "./app.js";
+import { bindIO, userRoom } from "./realtime.js";
+import { addSocket, removeSocket, getOnlineUserIds, onlineCount } from "./presence.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
 
-const app = express();
+const app = createApp();
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -14,31 +18,66 @@ const io = new Server(server, {
   },
 });
 
-// apply authentication middleware to all socket connections
+bindIO(io);
+
+// Authenticate every socket before it joins a room.
 io.use(socketAuthMiddleware);
 
-// we will use this function to check if the user is online or not
-export function getReceiverSocketId(userId) {
-  return userSocketMap[userId];
+// Lightweight flood guard for client-emitted events. Typing fires on every
+// keystroke, so it is the easiest event to abuse.
+const EVENT_BUDGET = 40;
+const EVENT_WINDOW_MS = 5000;
+
+function withinEventBudget(socket) {
+  const now = Date.now();
+  const state = socket.data.eventBudget ?? { count: 0, resetAt: now + EVENT_WINDOW_MS };
+
+  if (now > state.resetAt) {
+    state.count = 0;
+    state.resetAt = now + EVENT_WINDOW_MS;
+  }
+
+  state.count += 1;
+  socket.data.eventBudget = state;
+
+  return state.count <= EVENT_BUDGET;
 }
 
-// this is for storig online users
-const userSocketMap = {}; // {userId:socketId}
-
 io.on("connection", (socket) => {
-  console.log("A user connected", socket.user.fullName);
-
   const userId = socket.userId;
-  userSocketMap[userId] = socket.id;
 
-  // io.emit() is used to send events to all connected clients
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  // A per-user room means every tab/device receives events addressed to the
+  // user, not just the single socket id we happened to store last.
+  socket.join(userRoom(userId));
 
-  // with socket.on we listen for events from clients
+  const isFirstSocket = addSocket(userId, socket.id);
+  console.log(`A user connected: ${socket.user.fullName} (${onlineCount()} online)`);
+
+  // Only broadcast when someone actually goes online/offline. The previous
+  // version re-broadcast the whole presence list on every connect and
+  // disconnect, so cost grew with tabs instead of users.
+  if (isFirstSocket) {
+    io.emit("getOnlineUsers", getOnlineUserIds());
+  }
+
+  socket.on("typing", ({ receiverId, isTyping } = {}) => {
+    if (!withinEventBudget(socket)) return;
+    if (!receiverId || !mongoose.isValidObjectId(receiverId)) return;
+    if (String(receiverId) === userId) return;
+
+    io.to(userRoom(receiverId)).emit("typing", {
+      senderId: userId,
+      isTyping: Boolean(isTyping),
+    });
+  });
+
   socket.on("disconnect", () => {
-    console.log("A user disconnected", socket.user.fullName);
-    delete userSocketMap[userId];
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    const isLastSocket = removeSocket(userId, socket.id);
+
+    if (isLastSocket) {
+      io.emit("getOnlineUsers", getOnlineUserIds());
+      console.log(`A user disconnected: ${socket.user.fullName} (${onlineCount()} online)`);
+    }
   });
 });
 

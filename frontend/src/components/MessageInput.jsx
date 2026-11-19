@@ -1,42 +1,56 @@
 import { useRef, useState } from "react";
-import useKeyboardSound from "../hooks/useKeyboardSound";
-import { useChatStore } from "../store/useChatStore";
 import toast from "react-hot-toast";
 import { ImageIcon, SendIcon, XIcon } from "lucide-react";
+
+import useKeyboardSound from "../hooks/useKeyboardSound";
+import { useTypingIndicator } from "../hooks/useTypingIndicator";
+import { useChatStore } from "../store/useChatStore";
+import { downscaleImage } from "../lib/image";
 
 function MessageInput() {
   const { playRandomKeyStrokeSound } = useKeyboardSound();
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
 
   const fileInputRef = useRef(null);
 
-  const { sendMessage, isSoundEnabled } = useChatStore();
+  const { sendMessage, isSoundEnabled, selectedUser } = useChatStore();
+  const onType = useTypingIndicator(selectedUser?._id);
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!text.trim() && !imagePreview) return;
+  const handleSendMessage = async (event) => {
+    event.preventDefault();
+
+    const trimmed = text.trim();
+    if ((!trimmed && !imagePreview) || isPreparingImage) return;
+
     if (isSoundEnabled) playRandomKeyStrokeSound();
 
-    sendMessage({
-      text: text.trim(),
-      image: imagePreview,
-    });
+    const payload = { text: trimmed || undefined, image: imagePreview || undefined };
+
     setText("");
-    setImagePreview("");
+    setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+
+    await sendMessage(payload);
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
-      return;
-    }
+  const handleImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+    setIsPreparingImage(true);
+    try {
+      // Compress in the browser: a 6 MB phone photo becomes ~200 KB, which
+      // keeps the request well under the API body limit.
+      const dataUrl = await downscaleImage(file);
+      setImagePreview(dataUrl);
+    } catch (error) {
+      toast.error(error.message ?? "Could not process that image");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } finally {
+      setIsPreparingImage(false);
+    }
   };
 
   const removeImage = () => {
@@ -51,13 +65,14 @@ function MessageInput() {
           <div className="relative">
             <img
               src={imagePreview}
-              alt="Preview"
+              alt="Attachment preview"
               className="w-20 h-20 object-cover rounded-lg border border-slate-700"
             />
             <button
               onClick={removeImage}
               className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-200 hover:bg-slate-700"
               type="button"
+              aria-label="Remove attachment"
             >
               <XIcon className="w-4 h-4" />
             </button>
@@ -69,9 +84,11 @@ function MessageInput() {
         <input
           type="text"
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            isSoundEnabled && playRandomKeyStrokeSound();
+          maxLength={2000}
+          onChange={(event) => {
+            setText(event.target.value);
+            if (isSoundEnabled) playRandomKeyStrokeSound();
+            onType();
           }}
           className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
           placeholder="Type your message..."
@@ -88,15 +105,19 @@ function MessageInput() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-4 transition-colors ${
+          disabled={isPreparingImage}
+          aria-label="Attach an image"
+          className={`bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-4 transition-colors disabled:opacity-50 ${
             imagePreview ? "text-cyan-500" : ""
           }`}
         >
-          <ImageIcon className="w-5 h-5" />
+          <ImageIcon className={`w-5 h-5 ${isPreparingImage ? "animate-pulse" : ""}`} />
         </button>
+
         <button
           type="submit"
-          disabled={!text.trim() && !imagePreview}
+          disabled={(!text.trim() && !imagePreview) || isPreparingImage}
+          aria-label="Send message"
           className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <SendIcon className="w-5 h-5" />
@@ -105,4 +126,5 @@ function MessageInput() {
     </div>
   );
 }
+
 export default MessageInput;

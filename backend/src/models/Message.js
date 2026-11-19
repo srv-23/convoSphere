@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+export const MESSAGE_STATUSES = ["sent", "delivered", "read"];
+
 const messageSchema = new mongoose.Schema(
   {
     senderId: {
@@ -20,9 +22,23 @@ const messageSchema = new mongoose.Schema(
     image: {
       type: String,
     },
+    status: {
+      type: String,
+      enum: MESSAGE_STATUSES,
+      default: "sent",
+    },
+    readAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
+
+// Conversation history: "messages between A and B, newest first".
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+// Chat partner aggregation and unread counts, which match on one side only.
+messageSchema.index({ receiverId: 1, createdAt: -1 });
+messageSchema.index({ senderId: 1, createdAt: -1 });
 
 const Message = mongoose.model("Message", messageSchema);
 

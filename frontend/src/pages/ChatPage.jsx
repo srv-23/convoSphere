@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 
 import BorderAnimatedContainer from "../components/BorderAnimatedContainer";
@@ -9,7 +11,15 @@ import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 
 function ChatPage() {
-  const { activeTab, selectedUser } = useChatStore();
+  const { activeTab, selectedUser, bindSocketEvents } = useChatStore();
+  const { socket } = useAuthStore();
+
+  // Bind once per socket, not per conversation: background messages have to
+  // update the chat list even when no thread is open.
+  useEffect(() => {
+    if (!socket) return undefined;
+    return bindSocketEvents(socket);
+  }, [socket, bindSocketEvents]);
 
   return (
     <div className="relative w-full max-w-6xl h-[800px]">
@@ -32,4 +42,5 @@ function ChatPage() {
     </div>
   );
 }
+
 export default ChatPage;

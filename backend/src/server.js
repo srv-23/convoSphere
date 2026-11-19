@@ -1,37 +1,26 @@
-import dns from "dns";
-import express from "express";
-import cookieParser from "cookie-parser";
-import path from "path";
-import cors from "cors";
-
-dns.setServers(["8.8.8.8", "8.8.4.4"]);
-
-import authRoutes from "./routes/auth.route.js";
-import messageRoutes from "./routes/message.route.js";
-import { connectDB } from "./lib/db.js";
 import { ENV } from "./lib/env.js";
-import { app, server } from "./lib/socket.js";
+import { connectDB } from "./lib/db.js";
+import { configureDns } from "./lib/dns.js";
+import { server } from "./lib/socket.js";
 
-const __dirname = path.resolve();
+configureDns();
 
-const PORT = ENV.PORT || 3000;
+const start = async () => {
+  // Connect before accepting traffic: previously the server started
+  // listening first, so early requests hit a disconnected database.
+  await connectDB();
 
-app.use(express.json({ limit: "5mb" })); // req.body
-app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
-app.use(cookieParser());
-
-app.use("/api/auth", authRoutes);
-app.use("/api/messages", messageRoutes);
-
-if (ENV.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
-
-  app.get("*", (_, res) => {
-    res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+  server.listen(ENV.PORT, () => {
+    console.log(`Server running on port: ${ENV.PORT} (${ENV.NODE_ENV})`);
   });
-}
+};
 
-server.listen(PORT, () => {
-  console.log("Server running on port: " + PORT);
-  connectDB();
-});
+const shutdown = (signal) => {
+  console.log(`${signal} received, shutting down`);
+  server.close(() => process.exit(0));
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+start();
