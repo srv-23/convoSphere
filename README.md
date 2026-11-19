@@ -9,8 +9,6 @@ open tabs, not just one. Sessions are carried in an `httpOnly` cookie, and
 conversation reads are cursor-paginated so opening a chat costs the same whether
 it holds 30 messages or 30,000.
 
-> No live deployment at the moment. Run it locally with the steps below.
-
 ---
 
 ## Architecture
@@ -33,13 +31,13 @@ flowchart LR
   A --> J
 ```
 
-| Component | Responsibility |
-| --- | --- |
-| `backend/src/lib/app.js` | Builds the Express app without binding a port, so tests can drive it directly |
-| `backend/src/lib/socket.js` | Socket.io server, handshake auth, per-user rooms, flood guard |
-| `backend/src/lib/presence.js` | `Map<userId, Set<socketId>>` — one user may hold many sockets |
-| `backend/src/controllers/` | Request handlers; all data access is scoped to the authenticated user |
-| `frontend/src/store/` | Zustand stores plus `messageState.js`, the pure reconciliation logic |
+| Component                     | Responsibility                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `backend/src/lib/app.js`      | Builds the Express app without binding a port, so tests can drive it directly |
+| `backend/src/lib/socket.js`   | Socket.io server, handshake auth, per-user rooms, flood guard                 |
+| `backend/src/lib/presence.js` | `Map<userId, Set<socketId>>` — one user may hold many sockets                 |
+| `backend/src/controllers/`    | Request handlers; all data access is scoped to the authenticated user         |
+| `frontend/src/store/`         | Zustand stores plus `messageState.js`, the pure reconciliation logic          |
 
 External services are optional. Cloudinary, Resend and Arcjet fall back to
 no-ops when unconfigured, so the app boots and the test suite runs with only
@@ -100,27 +98,27 @@ so a duplicate socket delivery or a concurrent send cannot drop or double it.
 
 ## Features
 
-| Feature | How it works |
-| --- | --- |
-| Real-time 1:1 messaging | Socket.io; every socket joins `user:<id>`, so events reach all tabs |
-| Typing indicators | Client emits at most once per 1.5 s, auto-stops after 2 s idle |
-| Presence | Set of socket ids per user; broadcast only when a user goes online or offline |
-| Read receipts | `sent → delivered → read`, stored per message and pushed to the sender |
-| Auth | bcrypt (cost 10) + JWT in an `httpOnly`, `SameSite=Strict` cookie |
-| History | Cursor pagination on `createdAt`, 30 messages per page, `hasMore` flag |
-| Chat list | Single MongoDB aggregation returning last message + unread count |
-| Images | Downscaled in the browser, then uploaded to Cloudinary |
-| Welcome email | Resend; skipped entirely when no API key is set |
+| Feature                 | How it works                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| Real-time 1:1 messaging | Socket.io; every socket joins `user:<id>`, so events reach all tabs           |
+| Typing indicators       | Client emits at most once per 1.5 s, auto-stops after 2 s idle                |
+| Presence                | Set of socket ids per user; broadcast only when a user goes online or offline |
+| Read receipts           | `sent → delivered → read`, stored per message and pushed to the sender        |
+| Auth                    | bcrypt (cost 10) + JWT in an `httpOnly`, `SameSite=Strict` cookie             |
+| History                 | Cursor pagination on `createdAt`, 30 messages per page, `hasMore` flag        |
+| Chat list               | Single MongoDB aggregation returning last message + unread count              |
+| Images                  | Downscaled in the browser, then uploaded to Cloudinary                        |
+| Welcome email           | Resend; skipped entirely when no API key is set                               |
 
 ---
 
 ## Tech stack
 
-| Layer | Tools |
-| --- | --- |
-| Backend | Node.js 20+, Express, Mongoose, Socket.io, JWT, bcryptjs, Zod, Helmet, Arcjet |
-| Frontend | React 19, Vite, Zustand, Axios, Socket.io-client, Tailwind CSS, DaisyUI |
-| Testing | Vitest, Supertest, mongodb-memory-server, socket.io-client |
+| Layer    | Tools                                                                         |
+| -------- | ----------------------------------------------------------------------------- |
+| Backend  | Node.js 20+, Express, Mongoose, Socket.io, JWT, bcryptjs, Zod, Helmet, Arcjet |
+| Frontend | React 19, Vite, Zustand, Axios, Socket.io-client, Tailwind CSS, DaisyUI       |
+| Testing  | Vitest, Supertest, mongodb-memory-server, socket.io-client                    |
 
 ---
 
@@ -159,20 +157,20 @@ NODE_ENV=production npm start
 
 ### Environment variables
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `MONGO_URI` | yes | — | MongoDB connection string |
-| `JWT_SECRET` | yes | — | Signs the session token; app exits if missing or under 16 chars |
-| `CLIENT_URL` | no | `http://localhost:5173` | CORS origin and the link in welcome emails |
-| `PORT` | no | `3000` | HTTP port |
-| `NODE_ENV` | no | `development` | `production` enables `Secure` cookies and SPA serving |
-| `TRUST_PROXY` | no | `0` | Proxy hops in front of the app. Set `1` on Render/Railway/Fly, otherwise rate limiting sees the proxy IP |
-| `DNS_SERVERS` | no | system resolver | Comma-separated resolvers, for networks that cannot resolve Atlas SRV records |
-| `MAX_IMAGE_BYTES` | no | `5242880` | Upload ceiling after browser compression |
-| `MESSAGE_PAGE_SIZE` | no | `30` | Default page size |
-| `CLOUDINARY_*` | no | — | Image and avatar upload |
-| `RESEND_*` | no | — | Welcome email |
-| `ARCJET_KEY` | no | — | Rate limiting and bot protection; disabled without it |
+| Variable            | Required | Default                 | Purpose                                                                                                  |
+| ------------------- | -------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `MONGO_URI`         | yes      | —                       | MongoDB connection string                                                                                |
+| `JWT_SECRET`        | yes      | —                       | Signs the session token; app exits if missing or under 16 chars                                          |
+| `CLIENT_URL`        | no       | `http://localhost:5173` | CORS origin and the link in welcome emails                                                               |
+| `PORT`              | no       | `3000`                  | HTTP port                                                                                                |
+| `NODE_ENV`          | no       | `development`           | `production` enables `Secure` cookies and SPA serving                                                    |
+| `TRUST_PROXY`       | no       | `0`                     | Proxy hops in front of the app. Set `1` on Render/Railway/Fly, otherwise rate limiting sees the proxy IP |
+| `DNS_SERVERS`       | no       | system resolver         | Comma-separated resolvers, for networks that cannot resolve Atlas SRV records                            |
+| `MAX_IMAGE_BYTES`   | no       | `5242880`               | Upload ceiling after browser compression                                                                 |
+| `MESSAGE_PAGE_SIZE` | no       | `30`                    | Default page size                                                                                        |
+| `CLOUDINARY_*`      | no       | —                       | Image and avatar upload                                                                                  |
+| `RESEND_*`          | no       | —                       | Welcome email                                                                                            |
+| `ARCJET_KEY`        | no       | —                       | Rate limiting and bot protection; disabled without it                                                    |
 
 Configuration is validated once at boot with Zod, so a bad variable fails
 immediately with a named error instead of surfacing as a 500 on first use.
@@ -185,33 +183,33 @@ All message routes require the `jwt` cookie.
 
 **Auth**
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/api/auth/signup` | Create an account and set the cookie |
-| `POST` | `/api/auth/login` | Log in and set the cookie |
-| `POST` | `/api/auth/logout` | Clear the cookie |
-| `GET` | `/api/auth/check` | Current user, or `401` |
-| `PUT` | `/api/auth/update-profile` | Replace the avatar (base64 image) |
+| Method | Path                       | Description                          |
+| ------ | -------------------------- | ------------------------------------ |
+| `POST` | `/api/auth/signup`         | Create an account and set the cookie |
+| `POST` | `/api/auth/login`          | Log in and set the cookie            |
+| `POST` | `/api/auth/logout`         | Clear the cookie                     |
+| `GET`  | `/api/auth/check`          | Current user, or `401`               |
+| `PUT`  | `/api/auth/update-profile` | Replace the avatar (base64 image)    |
 
 **Messages**
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/messages/contacts` | Everyone except the caller |
-| `GET` | `/api/messages/chats` | Conversations with `lastMessage` and `unreadCount` |
-| `GET` | `/api/messages/:id?limit=30&before=<ISO>` | One page of a thread, oldest first, plus `hasMore` |
-| `POST` | `/api/messages/send/:id` | Send `{ text, image }` |
-| `PUT` | `/api/messages/:id/read` | Mark the thread read and notify the sender |
+| Method | Path                                      | Description                                        |
+| ------ | ----------------------------------------- | -------------------------------------------------- |
+| `GET`  | `/api/messages/contacts`                  | Everyone except the caller                         |
+| `GET`  | `/api/messages/chats`                     | Conversations with `lastMessage` and `unreadCount` |
+| `GET`  | `/api/messages/:id?limit=30&before=<ISO>` | One page of a thread, oldest first, plus `hasMore` |
+| `POST` | `/api/messages/send/:id`                  | Send `{ text, image }`                             |
+| `PUT`  | `/api/messages/:id/read`                  | Mark the thread read and notify the sender         |
 
 **Socket events**
 
-| Direction | Event | Payload |
-| --- | --- | --- |
-| server → client | `getOnlineUsers` | `string[]` of user ids |
-| server → client | `newMessage` | The message document |
-| server → client | `typing` | `{ senderId, isTyping }` |
-| server → client | `messagesRead` | `{ by }` |
-| client → server | `typing` | `{ receiverId, isTyping }` |
+| Direction       | Event            | Payload                    |
+| --------------- | ---------------- | -------------------------- |
+| server → client | `getOnlineUsers` | `string[]` of user ids     |
+| server → client | `newMessage`     | The message document       |
+| server → client | `typing`         | `{ senderId, isTyping }`   |
+| server → client | `messagesRead`   | `{ by }`                   |
+| client → server | `typing`         | `{ receiverId, isTyping }` |
 
 **Health:** `GET /api/health` → `{ status, uptime }`
 
@@ -307,12 +305,12 @@ runs both suites plus `lint` and `build`. It has not executed yet.
 same data. The old code is kept inline in the harness, so the comparison is
 against real code rather than a description of it.
 
-| Metric | Before | After | Change |
-| --- | --- | --- | --- |
-| Documents read to open a conversation | 53,000 | 30 | **−99.9%** |
-| Conversation response size | 864,974 B | 8,009 B | **−99.1%** |
-| Presence broadcasts (500 users × 3 tabs) | 3,000 | 1,000 | **−66.7%** |
-| Chat-list response time | ~800–1,010 ms | ~240–260 ms | **~68–77%** |
+| Metric                                   | Before        | After       | Change      |
+| ---------------------------------------- | ------------- | ----------- | ----------- |
+| Documents read to open a conversation    | 53,000        | 30          | **−99.9%**  |
+| Conversation response size               | 864,974 B     | 8,009 B     | **−99.1%**  |
+| Presence broadcasts (500 users × 3 tabs) | 3,000         | 1,000       | **−66.7%**  |
+| Chat-list response time                  | ~800–1,010 ms | ~240–260 ms | **~68–77%** |
 
 The first three rows are exact — a document count, a byte size and an event
 count on a fixed dataset. The last row is wall-clock and varies between runs, so

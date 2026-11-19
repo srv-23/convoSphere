@@ -63,7 +63,14 @@ export function createApp() {
 
     if (fs.existsSync(indexHtml)) {
       app.use(express.static(distDir));
-      app.get("*", (_req, res) => res.sendFile(indexHtml));
+
+      // Client-side routes (/chat, /login) must return index.html. An unknown
+      // /api path must NOT: it falls through to the JSON 404 handler below,
+      // otherwise a typo'd endpoint answers with HTML and status 200.
+      app.get("*", (req, res, next) => {
+        if (req.path.startsWith("/api")) return next();
+        return res.sendFile(indexHtml);
+      });
     } else {
       console.warn("Production build not found at", distDir);
     }
